@@ -1,8 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
+import plotly.express as px
 from io import BytesIO
 
 st.set_page_config(layout='wide', page_title='Prekovic Lab qPCR Analysis')
@@ -40,32 +39,50 @@ if uploaded_file:
             st.stop()
 
         hk_data = results[results['Target Name'].isin(housekeeping_genes)]
-        hk_means = hk_data.groupby('Sample Name')['CT'].agg(lambda x: np.exp(np.mean(np.log(x.dropna()))) if norm_method=='Geometric Mean' else np.mean(x))
+        hk_means = hk_data.groupby('Sample Name')['CT'].agg(
+            lambda x: np.exp(np.mean(np.log(x.dropna()))) if norm_method=='Geometric Mean' else np.mean(x)
+        )
 
         results = results.join(hk_means.rename('HK_mean'), on='Sample Name')
         results['ΔCt'] = results['CT'] - results['HK_mean']
 
+        # Extract Condition and Replicate from Sample Name clearly
+        results[['Condition', 'Replicate']] = results['Sample Name'].str.extract(r'(.*)\s+(\d+)$')
+
         plot_data = results[results['Target Name'].isin(genes_of_interest)].dropna(subset=['ΔCt'])
 
-        st.header("📊 Normalized Gene Expression (ΔCt)")
+        st.header("📊 Normalized Gene Expression per Condition")
 
-        plt.figure(figsize=(8, 5))
-        sns.barplot(x='Target Name', y='ΔCt', data=plot_data, ci='sd', capsize=.2, palette='viridis')
-        sns.stripplot(x='Target Name', y='ΔCt', data=plot_data, color='black', alpha=0.6)
-        plt.xlabel("Gene")
-        plt.ylabel("Normalized Expression (ΔCt)")
-        plt.title("Normalized Expression of Selected Genes")
-        st.pyplot(plt.gcf())
+        for gene in genes_of_interest:
+            gene_data = plot_data[plot_data['Target Name'] == gene]
+            fig = px.bar(
+                gene_data,
+                x='Condition',
+                y='ΔCt',
+                color='Condition',
+                error_y=gene_data.groupby('Condition')['ΔCt'].transform('std'),
+                title=f'Normalized Expression of {gene}',
+                labels={'ΔCt': 'Normalized Expression (ΔCt)'}
+            )
 
-        # PDF Export
-        buffer = BytesIO()
-        plt.savefig(buffer, format='pdf')
-        buffer.seek(0)
-        st.download_button("⬇️ Download Barplot PDF", buffer, "qPCR_Gene_Expression.pdf", "application/pdf")
+            fig.add_trace(px.strip(
+                gene_data,
+                x='Condition',
+                y='ΔCt',
+                hover_data=['Well Position', 'Replicate']
+            ).data[0])
 
-        # CSV Export
-        csv = results[['Sample Name', 'Target Name', 'CT', 'HK_mean', 'ΔCt']].to_csv(index=False).encode()
-        st.download_button("⬇️ Download Normalized Data (CSV)", csv, "normalized_qPCR_results.csv", "text/csv")
+            fig.update_layout(showlegend=False)
+            st.plotly_chart(fig, use_container_width=True)
+
+        # Export normalized results CSV
+        normalized_csv = results[['Sample Name', 'Condition', 'Replicate', 'Well Position', 'Target Name', 'CT', 'HK_mean', 'ΔCt']].to_csv(index=False).encode('utf-8')
+        st.download_button(
+            "⬇️ Download Normalized Data (CSV)",
+            data=normalized_csv,
+            file_name="normalized_qPCR_results.csv",
+            mime="text/csv"
+        )
 
     elif analysis_type == 'Melt Curve Analysis':
         st.header('🔥 Melt Curve Visualization')
@@ -73,12 +90,9 @@ if uploaded_file:
         melt_curve_selected = melt_curve_raw[melt_curve_raw['Well Position'] == well_selected]
 
         if not melt_curve_selected.empty:
-            plt.figure(figsize=(6,4))
-            sns.lineplot(x='Temperature', y='Derivative', data=melt_curve_selected)
-            plt.title(f"Melt Curve for Well {well_selected}")
-            plt.xlabel("Temperature (°C)")
-            plt.ylabel("Derivative")
-            st.pyplot(plt.gcf())
+            fig = px.line(melt_curve_selected, x='Temperature', y='Derivative',
+                          title=f"Melt Curve for Well {well_selected}")
+            st.plotly_chart(fig, use_container_width=True)
         else:
             st.warning(f"No data found for well {well_selected}.")
 
