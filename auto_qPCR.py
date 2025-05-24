@@ -70,20 +70,22 @@ if uploaded_file:
                 name='Mean ± SD'
             ))
 
-            # Scatter replicate points horizontally
+            # Scatter replicate points horizontally (fixed here)
             for idx, cond in enumerate(summary['Condition']):
                 cond_data = gene_data[gene_data['Condition'] == cond]
                 jitter_x = np.random.uniform(-0.15, 0.15, size=len(cond_data))
+                jittered_x = np.array([idx]*len(cond_data)) + jitter_x  # fixed indexing approach
+                
                 fig.add_trace(go.Scatter(
-                    x=[cond]*len(cond_data) + jitter_x,
+                    x=jittered_x,
                     y=cond_data['Expression (2^-ΔCt)'],
                     mode='markers',
                     marker=dict(size=8, color='black', opacity=0.7, line=dict(width=1)),
                     hovertemplate=(
-                        "Condition: %{x}<br>"
-                        "Expression: %{y:.2f}<br>"
-                        "Replicate: %{customdata[0]}<br>"
-                        "Well: %{customdata[1]}<br>"
+                        "Condition: {}<br>".format(cond) +
+                        "Expression: %{y:.2f}<br>" +
+                        "Replicate: %{customdata[0]}<br>" +
+                        "Well: %{customdata[1]}<br>" +
                         "ΔCt: %{customdata[2]:.2f}<extra></extra>"
                     ),
                     customdata=cond_data[['Replicate', 'Well Position', 'ΔCt']],
@@ -92,23 +94,26 @@ if uploaded_file:
 
             fig.update_layout(
                 title=f'Normalized Expression of {gene}',
-                xaxis_title='Condition',
-                yaxis_title='Expression (2^-ΔCt)',
+                xaxis=dict(
+                    tickmode='array',
+                    tickvals=list(range(len(summary['Condition']))),
+                    ticktext=summary['Condition'],
+                    title='Condition',
+                    showline=True, linewidth=1, linecolor='black', mirror=True,
+                    ticks='outside', showgrid=False
+                ),
+                yaxis=dict(
+                    title='Expression (2^-ΔCt)',
+                    showline=True, linewidth=1, linecolor='black', mirror=True,
+                    ticks='outside', showgrid=True, gridcolor='lightgray'
+                ),
                 template='plotly_white',
                 plot_bgcolor='white',
                 paper_bgcolor='white',
                 width=700,
                 height=450,
                 font=dict(color='black'),
-                margin=dict(l=40, r=40, t=40, b=40),
-                xaxis=dict(
-                    showline=True, linewidth=1, linecolor='black', mirror=True,
-                    ticks='outside', showgrid=False
-                ),
-                yaxis=dict(
-                    showline=True, linewidth=1, linecolor='black', mirror=True,
-                    ticks='outside', showgrid=True, gridcolor='lightgray'
-                )
+                margin=dict(l=40, r=40, t=40, b=40)
             )
 
             st.plotly_chart(fig, use_container_width=False)
