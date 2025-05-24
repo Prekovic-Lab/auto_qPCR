@@ -11,7 +11,7 @@ This repository provides the **Prekovic Lab qPCR Analysis App**, an intuitive an
 ## Input requirements:
 - Excel file (.xlsx format) from qPCR runs (compatible with standard Applied Biosystems export structure).
 
-## 📌 Naming Conditions & Replicates:
+## Naming Conditions & Replicates:
 For accurate replicate grouping, samples should follow the naming convention:
 
 - Condtion_name floowed by space and the replicate number; example -> "MYC-OE 1"
