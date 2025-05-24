@@ -87,14 +87,17 @@ if uploaded_file:
                     showlegend=False
                 ))
 
+            # Force the y-axis to start exactly at 0
+            fig.update_yaxes(range=[0, summary['mean'].max() + summary['std'].max()*1.2])
+
+
             fig.update_layout(
                 title=f'Normalized Expression of {gene}',
                 xaxis_title='Condition',
                 yaxis_title='Expression (2^-ΔCt)',
                 template='simple_white',
                 width=800,
-                height=500,
-                yaxis=dict(rangemode='tozero', autorange=True)
+                height=500
             )
 
             st.plotly_chart(fig, use_container_width=True)
