@@ -67,7 +67,8 @@ if uploaded_file:
                 y=summary['mean'],
                 error_y=dict(type='data', array=summary['std']),
                 marker_color=px.colors.qualitative.Pastel,
-                name='Mean ± SD'
+                name='Mean ± SD',
+                base=0  # Explicitly set bars to start from zero
             ))
 
             # Add individual replicate points
