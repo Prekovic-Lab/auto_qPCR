@@ -2,11 +2,10 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
-import plotly.express as px
 from io import BytesIO
 
 st.set_page_config(layout='wide', page_title='Prekovic Lab qPCR Analysis')
-st.title('Prekovic Lab qPCR Data Analysis')
+st.title('🧬 Prekovic Lab qPCR Data Analysis')
 
 uploaded_file = st.file_uploader("📁 Upload qPCR Excel file (.xlsx)", type=['xlsx'])
 
@@ -53,62 +52,66 @@ if uploaded_file:
 
         plot_data = results[results['Target Name'].isin(genes_of_interest)].dropna(subset=['Expression (2^-ΔCt)'])
 
-        st.header("Normalized Gene Expression")
+        st.header("📊 Normalized Gene Expression (High value = High expression)")
 
         for gene in genes_of_interest:
             gene_data = plot_data[plot_data['Target Name'] == gene]
             summary = gene_data.groupby('Condition')['Expression (2^-ΔCt)'].agg(['mean', 'std']).reset_index()
 
-            y_max = summary['mean'].max() + summary['std'].max() * 1.2
-
             fig = go.Figure()
 
-            # Add barplot with error bars
+            # Narrower bars
             fig.add_trace(go.Bar(
                 x=summary['Condition'],
                 y=summary['mean'],
                 error_y=dict(type='data', array=summary['std']),
-                marker_color=px.colors.qualitative.Pastel,
+                width=0.4,
+                marker=dict(color='rgba(70,130,180,0.6)', line=dict(color='black', width=1.5)),
                 name='Mean ± SD'
             ))
 
-            # Add individual replicate points
-            for idx, row in gene_data.iterrows():
+            # Scatter replicate points horizontally
+            for idx, cond in enumerate(summary['Condition']):
+                cond_data = gene_data[gene_data['Condition'] == cond]
+                jitter_x = np.random.uniform(-0.15, 0.15, size=len(cond_data))
                 fig.add_trace(go.Scatter(
-                    x=[row['Condition']],
-                    y=[row['Expression (2^-ΔCt)']],
+                    x=[cond]*len(cond_data) + jitter_x,
+                    y=cond_data['Expression (2^-ΔCt)'],
                     mode='markers',
-                    marker=dict(size=8, color='black', opacity=0.6),
+                    marker=dict(size=8, color='black', opacity=0.7, line=dict(width=1)),
                     hovertemplate=(
-                        f"Condition: {row['Condition']}<br>"
-                        f"Replicate: {row['Replicate']}<br>"
-                        f"Well: {row['Well Position']}<br>"
-                        f"Expression: {row['Expression (2^-ΔCt)']:.2f}<br>"
-                        f"ΔCt: {row['ΔCt']:.2f}"
+                        "Condition: %{x}<br>"
+                        "Expression: %{y:.2f}<br>"
+                        "Replicate: %{customdata[0]}<br>"
+                        "Well: %{customdata[1]}<br>"
+                        "ΔCt: %{customdata[2]:.2f}<extra></extra>"
                     ),
+                    customdata=cond_data[['Replicate', 'Well Position', 'ΔCt']],
                     showlegend=False
                 ))
-
-            # Force the y-axis to start exactly at 0
-            fig.update_yaxes(range=[0, summary['mean'].max() + summary['std'].max()*1.2])
-
 
             fig.update_layout(
                 title=f'Normalized Expression of {gene}',
                 xaxis_title='Condition',
                 yaxis_title='Expression (2^-ΔCt)',
-                template='simple_white',
-                width=800,
-                height=500,
-                    yaxis=dict(
-        range=[0, y_max],   # force baseline at zero
-        autorange=False,    # disable autorange to respect range
-        zeroline=True,      # draw zero baseline
-        zerolinewidth=2     # thickness of zero line
-    )
+                template='plotly_white',
+                plot_bgcolor='white',
+                paper_bgcolor='white',
+                width=700,
+                height=450,
+                font=dict(color='black'),
+                margin=dict(l=40, r=40, t=40, b=40),
+                xaxis=dict(
+                    showline=True, linewidth=1, linecolor='black', mirror=True,
+                    ticks='outside', showgrid=False
+                ),
+                yaxis=dict(
+                    showline=True, linewidth=1, linecolor='black', mirror=True,
+                    ticks='outside', showgrid=True, gridcolor='lightgray'
+                )
             )
 
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=False)
 
         # Export normalized results CSV
         normalized_csv = results[['Sample Name', 'Condition', 'Replicate', 'Well Position', 'Target Name', 'CT', 'HK_mean', 'ΔCt', 'Expression (2^-ΔCt)']].to_csv(index=False).encode('utf-8')
@@ -120,15 +123,41 @@ if uploaded_file:
         )
 
     elif analysis_type == 'Melt Curve Analysis':
-        st.header('Melt Curve Visualization')
+        st.header('🔥 Melt Curve Visualization')
         well_selected = st.text_input("Well Position (e.g., A1, B12):", 'A1').upper()
         melt_curve_selected = melt_curve_raw[melt_curve_raw['Well Position'] == well_selected]
 
         if not melt_curve_selected.empty:
-            fig = px.line(melt_curve_selected, x='Temperature', y='Derivative',
-                          title=f"Melt Curve for Well {well_selected}",
-                          template='simple_white')
-            st.plotly_chart(fig, use_container_width=True)
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(
+                x=melt_curve_selected['Temperature'],
+                y=melt_curve_selected['Derivative'],
+                mode='lines',
+                line=dict(color='royalblue', width=2)
+            ))
+
+            fig.update_layout(
+                title=f"Melt Curve for Well {well_selected}",
+                xaxis_title='Temperature (°C)',
+                yaxis_title='Derivative',
+                template='plotly_white',
+                plot_bgcolor='white',
+                paper_bgcolor='white',
+                width=700,
+                height=450,
+                font=dict(color='black'),
+                margin=dict(l=40, r=40, t=40, b=40),
+                xaxis=dict(
+                    showline=True, linewidth=1, linecolor='black', mirror=True,
+                    ticks='outside', showgrid=False
+                ),
+                yaxis=dict(
+                    showline=True, linewidth=1, linecolor='black', mirror=True,
+                    ticks='outside', showgrid=True, gridcolor='lightgray'
+                )
+            )
+
+            st.plotly_chart(fig, use_container_width=False)
         else:
             st.warning(f"No data found for well {well_selected}.")
 
