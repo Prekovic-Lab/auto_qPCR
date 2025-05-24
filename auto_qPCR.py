@@ -51,7 +51,7 @@ if uploaded_file:
 
         plot_data = results[results['Target Name'].isin(genes_of_interest)].dropna(subset=['Expression (2^-ΔCt)'])
 
-        st.header("📊 Normalized Gene Expression (High value = High expression)")
+        st.header("📊 Normalized Gene Expression")
 
         conditions = plot_data['Condition'].unique()
         condition_colors = {}
