@@ -99,7 +99,13 @@ if uploaded_file:
                 yaxis_title='Expression (2^-ΔCt)',
                 template='simple_white',
                 width=800,
-                height=500
+                height=500,
+                    yaxis=dict(
+        range=[0, y_max],   # force baseline at zero
+        autorange=False,    # disable autorange to respect range
+        zeroline=True,      # draw zero baseline
+        zerolinewidth=2     # thickness of zero line
+    )
             )
 
             st.plotly_chart(fig, use_container_width=True)
