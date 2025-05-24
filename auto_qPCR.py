@@ -5,7 +5,7 @@ import plotly.graph_objects as go
 import plotly.io as pio
 
 st.set_page_config(layout='wide', page_title='Prekovic Lab qPCR Analysis')
-st.title('autoqPCR')
+st.title('auto qPCR')
 
 uploaded_file = st.file_uploader("📁 Upload qPCR Excel file (.xlsx)", type=['xlsx'])
 
