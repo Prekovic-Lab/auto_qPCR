@@ -107,7 +107,7 @@ if uploaded_file:
                 template='plotly_white',
                 plot_bgcolor='white',
                 paper_bgcolor='white',
-                width=700,
+                width=500,
                 height=450,
                 font=dict(color='black'),
                 margin=dict(l=40, r=40, t=40, b=40),
