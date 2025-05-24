@@ -18,7 +18,7 @@ if uploaded_file:
     # Load specific sheets
     sample_setup = xl.parse('Sample Setup', skiprows=6)
     amplification_data = xl.parse('Amplification Data', skiprows=7)
-    results = xl.parse('Results', skiprows=7)
+    results = xl.parse('Results', skiprows=20)
     melt_curve_raw = xl.parse('Melt Curve Raw Data', skiprows=7)
     melt_curve_result = xl.parse('Melt Curve Result', skiprows=7)
 
