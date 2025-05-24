@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
+import plotly.io as pio
 from io import BytesIO
 
 st.set_page_config(layout='wide', page_title='Prekovic Lab qPCR Analysis')
@@ -47,7 +48,6 @@ if uploaded_file:
         results['ΔCt'] = results['CT'] - results['HK_mean']
         results['Expression (2^-ΔCt)'] = 2 ** (-results['ΔCt'])
 
-        # Extract condition and replicate
         results[['Condition', 'Replicate']] = results['Sample Name'].str.extract(r'(.*)\s+(\d+)$')
 
         plot_data = results[results['Target Name'].isin(genes_of_interest)].dropna(subset=['Expression (2^-ΔCt)'])
@@ -60,63 +60,47 @@ if uploaded_file:
 
             fig = go.Figure()
 
-            # Narrower bars
+            # Clean bar plot without scatter points
             fig.add_trace(go.Bar(
                 x=summary['Condition'],
                 y=summary['mean'],
                 error_y=dict(type='data', array=summary['std']),
                 width=0.4,
-                marker=dict(color='rgba(70,130,180,0.6)', line=dict(color='black', width=1.5)),
+                marker=dict(color='rgba(70,130,180,0.7)', line=dict(color='black', width=1.5)),
                 name='Mean ± SD'
             ))
 
-            # Scatter replicate points horizontally (fixed here)
-            for idx, cond in enumerate(summary['Condition']):
-                cond_data = gene_data[gene_data['Condition'] == cond]
-                jitter_x = np.random.uniform(-0.15, 0.15, size=len(cond_data))
-                jittered_x = np.array([idx]*len(cond_data)) + jitter_x  # fixed indexing approach
-                
-                fig.add_trace(go.Scatter(
-                    x=jittered_x,
-                    y=cond_data['Expression (2^-ΔCt)'],
-                    mode='markers',
-                    marker=dict(size=8, color='black', opacity=0.7, line=dict(width=1)),
-                    hovertemplate=(
-                        "Condition: {}<br>".format(cond) +
-                        "Expression: %{y:.2f}<br>" +
-                        "Replicate: %{customdata[0]}<br>" +
-                        "Well: %{customdata[1]}<br>" +
-                        "ΔCt: %{customdata[2]:.2f}<extra></extra>"
-                    ),
-                    customdata=cond_data[['Replicate', 'Well Position', 'ΔCt']],
-                    showlegend=False
-                ))
-
             fig.update_layout(
                 title=f'Normalized Expression of {gene}',
-                xaxis=dict(
-                    tickmode='array',
-                    tickvals=list(range(len(summary['Condition']))),
-                    ticktext=summary['Condition'],
-                    title='Condition',
-                    showline=True, linewidth=1, linecolor='black', mirror=True,
-                    ticks='outside', showgrid=False
-                ),
-                yaxis=dict(
-                    title='Expression (2^-ΔCt)',
-                    showline=True, linewidth=1, linecolor='black', mirror=True,
-                    ticks='outside', showgrid=True, gridcolor='lightgray'
-                ),
+                xaxis_title='Condition',
+                yaxis_title='Expression (2^-ΔCt)',
                 template='plotly_white',
                 plot_bgcolor='white',
                 paper_bgcolor='white',
                 width=700,
                 height=450,
                 font=dict(color='black'),
-                margin=dict(l=40, r=40, t=40, b=40)
+                margin=dict(l=40, r=40, t=40, b=40),
+                xaxis=dict(
+                    showline=True, linewidth=1, linecolor='black', mirror=True,
+                    ticks='outside', showgrid=False
+                ),
+                yaxis=dict(
+                    showline=True, linewidth=1, linecolor='black', mirror=True,
+                    ticks='outside', showgrid=True, gridcolor='lightgray', rangemode='tozero'
+                )
             )
 
             st.plotly_chart(fig, use_container_width=False)
+
+            # Download plot as PDF
+            pdf_bytes = pio.to_image(fig, format='pdf')
+            st.download_button(
+                label=f"⬇️ Download {gene} Plot (PDF)",
+                data=pdf_bytes,
+                file_name=f"{gene}_Expression_Plot.pdf",
+                mime='application/pdf'
+            )
 
         # Export normalized results CSV
         normalized_csv = results[['Sample Name', 'Condition', 'Replicate', 'Well Position', 'Target Name', 'CT', 'HK_mean', 'ΔCt', 'Expression (2^-ΔCt)']].to_csv(index=False).encode('utf-8')
@@ -163,6 +147,16 @@ if uploaded_file:
             )
 
             st.plotly_chart(fig, use_container_width=False)
+
+            # PDF download for melt curve
+            pdf_bytes_melt = pio.to_image(fig, format='pdf')
+            st.download_button(
+                label=f"⬇️ Download Melt Curve {well_selected} (PDF)",
+                data=pdf_bytes_melt,
+                file_name=f"MeltCurve_{well_selected}.pdf",
+                mime='application/pdf'
+            )
+
         else:
             st.warning(f"No data found for well {well_selected}.")
 
