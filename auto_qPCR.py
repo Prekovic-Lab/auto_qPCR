@@ -53,31 +53,44 @@ if uploaded_file:
 
         st.header("📊 Normalized Gene Expression (High value = High expression)")
 
+        conditions = plot_data['Condition'].unique()
+        condition_colors = {}
+        
+        st.subheader("🎨 Choose Condition Colors:")
+        cols = st.columns(len(conditions))
+        default_colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b']
+        
+        for idx, cond in enumerate(conditions):
+            with cols[idx]:
+                condition_colors[cond] = st.color_picker(f"Color for {cond}", default_colors[idx % len(default_colors)])
+
         for gene in genes_of_interest:
             gene_data = plot_data[plot_data['Target Name'] == gene]
             summary = gene_data.groupby('Condition')['Expression (2^-ΔCt)'].agg(['mean', 'std']).reset_index()
 
             fig = go.Figure()
 
-            fig.add_trace(go.Bar(
-                x=summary['Condition'],
-                y=summary['mean'],
-                error_y=dict(type='data', array=summary['std']),
-                width=0.4,
-                marker=dict(color='rgba(70,130,180,0.7)', line=dict(color='black', width=1.5)),
-                name='Mean ± SD'
-            ))
+            for cond in conditions:
+                cond_summary = summary[summary['Condition'] == cond]
+                cond_data = gene_data[gene_data['Condition'] == cond]
 
-            # Replicate points
-            for condition in summary['Condition']:
-                cond_data = gene_data[gene_data['Condition'] == condition]
+                fig.add_trace(go.Bar(
+                    x=[cond],
+                    y=cond_summary['mean'],
+                    error_y=dict(type='data', array=cond_summary['std']),
+                    width=0.4,
+                    marker=dict(color=condition_colors[cond], line=dict(color='black', width=1.5)),
+                    name=cond
+                ))
+
+                # Explicit individual data points
                 fig.add_trace(go.Scatter(
-                    x=[condition]*len(cond_data),
+                    x=np.repeat(cond, len(cond_data)),
                     y=cond_data['Expression (2^-ΔCt)'],
                     mode='markers',
-                    marker=dict(size=7, color='black', opacity=0.8, line=dict(width=1)),
+                    marker=dict(size=7, color='black', opacity=0.9, line=dict(width=1)),
                     hovertemplate=(
-                        f"Condition: {condition}<br>" +
+                        f"Condition: {cond}<br>" +
                         "Replicate: %{customdata[0]}<br>" +
                         "Well: %{customdata[1]}<br>" +
                         "Expression: %{y:.2f}<br>" +
@@ -110,7 +123,7 @@ if uploaded_file:
 
             st.plotly_chart(fig, use_container_width=False)
 
-            # Robust PDF download using kaleido
+            # PDF vectorized plot download
             try:
                 pdf_bytes = pio.to_image(fig, format='pdf', engine='kaleido')
                 st.download_button(
@@ -120,7 +133,7 @@ if uploaded_file:
                     mime='application/pdf'
                 )
             except Exception as e:
-                st.error(f"Error generating PDF: {e}. Ensure kaleido is installed.")
+                st.error(f"PDF Error: {e}. Ensure 'kaleido' is installed.")
 
         normalized_csv = results[['Sample Name', 'Condition', 'Replicate', 'Well Position', 'Target Name', 'CT', 'HK_mean', 'ΔCt', 'Expression (2^-ΔCt)']].to_csv(index=False).encode('utf-8')
         st.download_button(
@@ -176,7 +189,7 @@ if uploaded_file:
                     mime='application/pdf'
                 )
             except Exception as e:
-                st.error(f"Error generating PDF: {e}. Ensure kaleido is installed.")
+                st.error(f"PDF Error: {e}. Ensure 'kaleido' is installed.")
         else:
             st.warning(f"No data found for well {well_selected}.")
 
