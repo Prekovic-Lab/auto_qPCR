@@ -78,7 +78,7 @@ if uploaded_file:
                     x=[cond],
                     y=cond_summary['mean'],
                     error_y=dict(type='data', array=cond_summary['std']),
-                    width=0.1,
+                    width=0.7,
                     marker=dict(color=condition_colors[cond], line=dict(color='black', width=1.5)),
                     name=cond
                 ))
