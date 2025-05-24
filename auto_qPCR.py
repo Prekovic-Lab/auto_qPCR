@@ -59,48 +59,51 @@ if uploaded_file:
             gene_data = plot_data[plot_data['Target Name'] == gene]
             summary = gene_data.groupby('Condition')['Expression (2^-ΔCt)'].agg(['mean', 'std']).reset_index()
 
-            fig = go.Figure()
+          # compute maximum y-value with padding
+y_max = summary['mean'].max() + summary['std'].max() * 1.2
 
-            # Add barplot with error bars
-            fig.add_trace(go.Bar(
-                x=summary['Condition'],
-                y=summary['mean'],
-                error_y=dict(type='data', array=summary['std']),
-                marker_color=px.colors.qualitative.Pastel,
-                name='Mean ± SD'
-            ))
+fig = go.Figure()
 
-            # Add individual replicate points
-            for idx, row in gene_data.iterrows():
-                fig.add_trace(go.Scatter(
-                    x=[row['Condition']],
-                    y=[row['Expression (2^-ΔCt)']],
-                    mode='markers',
-                    marker=dict(size=8, color='black', opacity=0.6),
-                    hovertemplate=(
-                        f"Condition: {row['Condition']}<br>"
-                        f"Replicate: {row['Replicate']}<br>"
-                        f"Well: {row['Well Position']}<br>"
-                        f"Expression: {row['Expression (2^-ΔCt)']:.2f}<br>"
-                        f"ΔCt: {row['ΔCt']:.2f}"
-                    ),
-                    showlegend=False
-                ))
+fig.add_trace(go.Bar(
+    x=summary['Condition'],
+    y=summary['mean'],
+    error_y=dict(type='data', array=summary['std']),
+    marker_color=px.colors.qualitative.Pastel,
+    name='Mean ± SD'
+))
 
-            # Force the y-axis to start exactly at 0
-            fig.update_yaxes(range=[0, summary['mean'].max() + summary['std'].max()*1.2])
+for idx, row in gene_data.iterrows():
+    fig.add_trace(go.Scatter(
+        x=[row['Condition']],
+        y=[row['Expression (2^-ΔCt)']],
+        mode='markers',
+        marker=dict(size=8, color='black', opacity=0.6),
+        hovertemplate=(
+            f"Condition: {row['Condition']}<br>"
+            f"Replicate: {row['Replicate']}<br>"
+            f"Well: {row['Well Position']}<br>"
+            f"Expression: {row['Expression (2^-ΔCt)']:.2f}<br>"
+            f"ΔCt: {row['ΔCt']:.2f}"
+        ),
+        showlegend=False
+    ))
 
+fig.update_layout(
+    title=f'Normalized Expression of {gene}',
+    xaxis_title='Condition',
+    yaxis_title='Expression (2^-ΔCt)',
+    template='simple_white',
+    width=800,
+    height=500,
+    yaxis=dict(
+        range=[0, y_max],   # force baseline at zero
+        autorange=False,    # disable autorange to respect range
+        zeroline=True,      # draw zero baseline
+        zerolinewidth=2     # thickness of zero line
+    )
+)
 
-            fig.update_layout(
-                title=f'Normalized Expression of {gene}',
-                xaxis_title='Condition',
-                yaxis_title='Expression (2^-ΔCt)',
-                template='simple_white',
-                width=800,
-                height=500
-            )
-
-            st.plotly_chart(fig, use_container_width=True)
+st.plotly_chart(fig, use_container_width=True)
 
         # Export normalized results CSV
         normalized_csv = results[['Sample Name', 'Condition', 'Replicate', 'Well Position', 'Target Name', 'CT', 'HK_mean', 'ΔCt', 'Expression (2^-ΔCt)']].to_csv(index=False).encode('utf-8')
