@@ -18,9 +18,12 @@ if uploaded_file:
     amplification_data = xl.parse('Amplification Data', skiprows=21)
     melt_curve_raw = xl.parse('Melt Curve Raw Data', skiprows=21)
 
+    # Ensure correct numeric conversion for CT
+    results['CT'] = pd.to_numeric(results['CT'], errors='coerce')
+
     # Dynamic housekeeping gene selection from actual data
-    available_genes = results['Target Name'].unique().tolist()
-    
+    available_genes = results['Target Name'].dropna().unique().tolist()
+
     st.sidebar.header("Housekeeping Gene Settings")
     housekeeping_genes = st.sidebar.multiselect(
         "Select Housekeeping Genes:",
@@ -37,15 +40,12 @@ if uploaded_file:
         default=[gene for gene in available_genes if gene not in housekeeping_genes][:3]
     )
 
-    # Ensure housekeeping genes were selected
+    # Ensure housekeeping genes are selected
     if not housekeeping_genes:
         st.error("Please select at least one housekeeping gene.")
         st.stop()
 
-    # Convert CT to numeric explicitly
-    results['CT'] = pd.to_numeric(results['CT'], errors='coerce')
-
-    # Calculate housekeeping reference
+    # Pivot table for housekeeping genes CT values
     housekeeping_cts = results[results['Target Name'].isin(housekeeping_genes)].pivot_table(
         index='Sample Name', columns='Target Name', values='CT', aggfunc='mean'
     )
@@ -55,10 +55,13 @@ if uploaded_file:
     else:
         hk_reference = housekeeping_cts.apply(lambda x: np.exp(np.mean(np.log(x.dropna()))), axis=1)
 
-    # Normalization (ΔCt calculation)
-    results['ΔCt'] = results.apply(lambda row: row['CT'] - hk_reference.loc[row['Sample Name']], axis=1)
+    # Explicit merging to match hk_reference with results dataframe
+    results = results.merge(hk_reference.rename('HK_Reference'), left_on='Sample Name', right_index=True, how='left')
 
-    # Melt Curve Visualization (individual well)
+    # Proper ΔCt calculation
+    results['ΔCt'] = results['CT'] - results['HK_Reference']
+
+    # Melt Curve Visualization
     st.header('🔥 Melt Curve Analysis')
     well_selected = st.text_input("Enter Well Position (e.g., A1, B12):", value='A1').upper()
     melt_curve_selected = melt_curve_raw[melt_curve_raw['Well Position'] == well_selected]
@@ -73,7 +76,7 @@ if uploaded_file:
     else:
         st.warning(f"No melt curve data found for well {well_selected}.")
 
-    # Amplification Curves
+    # Amplification Curves Visualization
     st.header('📈 Amplification Curves')
     amp_gene = st.selectbox("Select Gene for Amplification Curve:", available_genes)
     amp_curve_data = amplification_data[amplification_data['Target Name'] == amp_gene]
@@ -88,7 +91,7 @@ if uploaded_file:
     ax2.set_ylabel("ΔRn")
     st.pyplot(fig2)
 
-    # Barplot of Normalized Gene Expression
+    # Normalized Gene Expression Barplot
     st.header("📊 Normalized Gene Expression")
     plot_data = results[results['Target Name'].isin(genes_of_interest)].dropna(subset=['ΔCt'])
 
@@ -104,7 +107,7 @@ if uploaded_file:
     ax3.set_title("Normalized Expression of Selected Genes")
     st.pyplot(fig3)
 
-    # Export barplot as PDF
+    # Export barplot as vectorized PDF
     buffer = BytesIO()
     fig3.savefig(buffer, format='pdf')
     buffer.seek(0)
