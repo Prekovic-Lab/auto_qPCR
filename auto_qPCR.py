@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import plotly.graph_objects as go
 import plotly.express as px
 from io import BytesIO
 
@@ -40,43 +41,65 @@ if uploaded_file:
 
         hk_data = results[results['Target Name'].isin(housekeeping_genes)]
         hk_means = hk_data.groupby('Sample Name')['CT'].agg(
-            lambda x: np.exp(np.mean(np.log(x.dropna()))) if norm_method=='Geometric Mean' else np.mean(x)
+            lambda x: np.exp(np.mean(np.log(x.dropna()))) if norm_method == 'Geometric Mean' else np.mean(x)
         )
 
         results = results.join(hk_means.rename('HK_mean'), on='Sample Name')
         results['ΔCt'] = results['CT'] - results['HK_mean']
+        results['Expression (2^-ΔCt)'] = 2 ** (-results['ΔCt'])
 
-        # Extract Condition and Replicate from Sample Name clearly
+        # Extract condition and replicate
         results[['Condition', 'Replicate']] = results['Sample Name'].str.extract(r'(.*)\s+(\d+)$')
 
-        plot_data = results[results['Target Name'].isin(genes_of_interest)].dropna(subset=['ΔCt'])
+        plot_data = results[results['Target Name'].isin(genes_of_interest)].dropna(subset=['Expression (2^-ΔCt)'])
 
-        st.header("📊 Normalized Gene Expression per Condition")
+        st.header("📊 Normalized Gene Expression (High value = High expression)")
 
         for gene in genes_of_interest:
             gene_data = plot_data[plot_data['Target Name'] == gene]
-            fig = px.bar(
-                gene_data,
-                x='Condition',
-                y='ΔCt',
-                color='Condition',
-                error_y=gene_data.groupby('Condition')['ΔCt'].transform('std'),
+            summary = gene_data.groupby('Condition')['Expression (2^-ΔCt)'].agg(['mean', 'std']).reset_index()
+
+            fig = go.Figure()
+
+            # Add barplot with error bars
+            fig.add_trace(go.Bar(
+                x=summary['Condition'],
+                y=summary['mean'],
+                error_y=dict(type='data', array=summary['std']),
+                marker_color=px.colors.qualitative.Pastel,
+                name='Mean ± SD'
+            ))
+
+            # Add individual replicate points
+            for idx, row in gene_data.iterrows():
+                fig.add_trace(go.Scatter(
+                    x=[row['Condition']],
+                    y=[row['Expression (2^-ΔCt)']],
+                    mode='markers',
+                    marker=dict(size=8, color='black', opacity=0.6),
+                    hovertemplate=(
+                        f"Condition: {row['Condition']}<br>"
+                        f"Replicate: {row['Replicate']}<br>"
+                        f"Well: {row['Well Position']}<br>"
+                        f"Expression: {row['Expression (2^-ΔCt)']:.2f}<br>"
+                        f"ΔCt: {row['ΔCt']:.2f}"
+                    ),
+                    showlegend=False
+                ))
+
+            fig.update_layout(
                 title=f'Normalized Expression of {gene}',
-                labels={'ΔCt': 'Normalized Expression (ΔCt)'}
+                xaxis_title='Condition',
+                yaxis_title='Expression (2^-ΔCt)',
+                template='simple_white',
+                width=800,
+                height=500
             )
 
-            fig.add_trace(px.strip(
-                gene_data,
-                x='Condition',
-                y='ΔCt',
-                hover_data=['Well Position', 'Replicate']
-            ).data[0])
-
-            fig.update_layout(showlegend=False)
             st.plotly_chart(fig, use_container_width=True)
 
         # Export normalized results CSV
-        normalized_csv = results[['Sample Name', 'Condition', 'Replicate', 'Well Position', 'Target Name', 'CT', 'HK_mean', 'ΔCt']].to_csv(index=False).encode('utf-8')
+        normalized_csv = results[['Sample Name', 'Condition', 'Replicate', 'Well Position', 'Target Name', 'CT', 'HK_mean', 'ΔCt', 'Expression (2^-ΔCt)']].to_csv(index=False).encode('utf-8')
         st.download_button(
             "⬇️ Download Normalized Data (CSV)",
             data=normalized_csv,
@@ -91,7 +114,8 @@ if uploaded_file:
 
         if not melt_curve_selected.empty:
             fig = px.line(melt_curve_selected, x='Temperature', y='Derivative',
-                          title=f"Melt Curve for Well {well_selected}")
+                          title=f"Melt Curve for Well {well_selected}",
+                          template='simple_white')
             st.plotly_chart(fig, use_container_width=True)
         else:
             st.warning(f"No data found for well {well_selected}.")
