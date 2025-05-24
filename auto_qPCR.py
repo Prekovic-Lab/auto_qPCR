@@ -3,7 +3,6 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 import plotly.io as pio
-from io import BytesIO
 
 st.set_page_config(layout='wide', page_title='Prekovic Lab qPCR Analysis')
 st.title('🧬 Prekovic Lab qPCR Data Analysis')
@@ -60,7 +59,6 @@ if uploaded_file:
 
             fig = go.Figure()
 
-            # Clean bar plot without scatter points
             fig.add_trace(go.Bar(
                 x=summary['Condition'],
                 y=summary['mean'],
@@ -69,6 +67,25 @@ if uploaded_file:
                 marker=dict(color='rgba(70,130,180,0.7)', line=dict(color='black', width=1.5)),
                 name='Mean ± SD'
             ))
+
+            # Replicate points
+            for condition in summary['Condition']:
+                cond_data = gene_data[gene_data['Condition'] == condition]
+                fig.add_trace(go.Scatter(
+                    x=[condition]*len(cond_data),
+                    y=cond_data['Expression (2^-ΔCt)'],
+                    mode='markers',
+                    marker=dict(size=7, color='black', opacity=0.8, line=dict(width=1)),
+                    hovertemplate=(
+                        f"Condition: {condition}<br>" +
+                        "Replicate: %{customdata[0]}<br>" +
+                        "Well: %{customdata[1]}<br>" +
+                        "Expression: %{y:.2f}<br>" +
+                        "ΔCt: %{customdata[2]:.2f}<extra></extra>"
+                    ),
+                    customdata=cond_data[['Replicate', 'Well Position', 'ΔCt']],
+                    showlegend=False
+                ))
 
             fig.update_layout(
                 title=f'Normalized Expression of {gene}',
@@ -93,16 +110,18 @@ if uploaded_file:
 
             st.plotly_chart(fig, use_container_width=False)
 
-            # Download plot as PDF
-            pdf_bytes = pio.to_image(fig, format='pdf')
-            st.download_button(
-                label=f"⬇️ Download {gene} Plot (PDF)",
-                data=pdf_bytes,
-                file_name=f"{gene}_Expression_Plot.pdf",
-                mime='application/pdf'
-            )
+            # Robust PDF download using kaleido
+            try:
+                pdf_bytes = pio.to_image(fig, format='pdf', engine='kaleido')
+                st.download_button(
+                    label=f"⬇️ Download {gene} Plot (PDF)",
+                    data=pdf_bytes,
+                    file_name=f"{gene}_Expression_Plot.pdf",
+                    mime='application/pdf'
+                )
+            except Exception as e:
+                st.error(f"Error generating PDF: {e}. Ensure kaleido is installed.")
 
-        # Export normalized results CSV
         normalized_csv = results[['Sample Name', 'Condition', 'Replicate', 'Well Position', 'Target Name', 'CT', 'HK_mean', 'ΔCt', 'Expression (2^-ΔCt)']].to_csv(index=False).encode('utf-8')
         st.download_button(
             "⬇️ Download Normalized Data (CSV)",
@@ -148,15 +167,16 @@ if uploaded_file:
 
             st.plotly_chart(fig, use_container_width=False)
 
-            # PDF download for melt curve
-            pdf_bytes_melt = pio.to_image(fig, format='pdf')
-            st.download_button(
-                label=f"⬇️ Download Melt Curve {well_selected} (PDF)",
-                data=pdf_bytes_melt,
-                file_name=f"MeltCurve_{well_selected}.pdf",
-                mime='application/pdf'
-            )
-
+            try:
+                pdf_bytes_melt = pio.to_image(fig, format='pdf', engine='kaleido')
+                st.download_button(
+                    label=f"⬇️ Download Melt Curve {well_selected} (PDF)",
+                    data=pdf_bytes_melt,
+                    file_name=f"MeltCurve_{well_selected}.pdf",
+                    mime='application/pdf'
+                )
+            except Exception as e:
+                st.error(f"Error generating PDF: {e}. Ensure kaleido is installed.")
         else:
             st.warning(f"No data found for well {well_selected}.")
 
