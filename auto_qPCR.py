@@ -94,7 +94,8 @@ if uploaded_file:
                 yaxis_title='Expression (2^-ΔCt)',
                 template='simple_white',
                 width=800,
-                height=500
+                height=500,
+                yaxis=dict(rangemode='tozero')  # Ensure y-axis starts from zero
             )
 
             st.plotly_chart(fig, use_container_width=True)
