@@ -67,8 +67,7 @@ if uploaded_file:
                 y=summary['mean'],
                 error_y=dict(type='data', array=summary['std']),
                 marker_color=px.colors.qualitative.Pastel,
-                name='Mean ± SD',
-                base=0  # Explicitly set bars to start from zero
+                name='Mean ± SD'
             ))
 
             # Add individual replicate points
@@ -95,7 +94,7 @@ if uploaded_file:
                 template='simple_white',
                 width=800,
                 height=500,
-                yaxis=dict(range=[0, summary['mean'].max() + summary['std'].max() + 0.1])  # explicitly define y-axis range
+                    yaxis=dict(range=[0, summary['mean'].max() + summary['std'].max()*1.2])
             )
 
             st.plotly_chart(fig, use_container_width=True)
