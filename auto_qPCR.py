@@ -94,7 +94,7 @@ if uploaded_file:
                 template='simple_white',
                 width=800,
                 height=500,
-                    yaxis=dict(range=[0, summary['mean'].max() + summary['std'].max()*1.2])
+                yaxis=dict(rangemode='tozero', autorange=True)
             )
 
             st.plotly_chart(fig, use_container_width=True)
