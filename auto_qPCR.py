@@ -6,7 +6,7 @@ import plotly.express as px
 from io import BytesIO
 
 st.set_page_config(layout='wide', page_title='Prekovic Lab qPCR Analysis')
-st.title('🧬 Prekovic Lab qPCR Data Analysis')
+st.title('Prekovic Lab qPCR Data Analysis')
 
 uploaded_file = st.file_uploader("📁 Upload qPCR Excel file (.xlsx)", type=['xlsx'])
 
@@ -53,7 +53,7 @@ if uploaded_file:
 
         plot_data = results[results['Target Name'].isin(genes_of_interest)].dropna(subset=['Expression (2^-ΔCt)'])
 
-        st.header("📊 Normalized Gene Expression (High value = High expression)")
+        st.header("Normalized Gene Expression")
 
         for gene in genes_of_interest:
             gene_data = plot_data[plot_data['Target Name'] == gene]
@@ -108,7 +108,7 @@ if uploaded_file:
         )
 
     elif analysis_type == 'Melt Curve Analysis':
-        st.header('🔥 Melt Curve Visualization')
+        st.header('Melt Curve Visualization')
         well_selected = st.text_input("Well Position (e.g., A1, B12):", 'A1').upper()
         melt_curve_selected = melt_curve_raw[melt_curve_raw['Well Position'] == well_selected]
 
