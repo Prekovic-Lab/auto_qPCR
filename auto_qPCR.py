@@ -95,7 +95,7 @@ if uploaded_file:
                 template='simple_white',
                 width=800,
                 height=500,
-                yaxis=dict(rangemode='tozero')  # Ensure y-axis starts from zero
+                yaxis=dict(range=[0, summary['mean'].max() + summary['std'].max() + 0.1])  # explicitly define y-axis range
             )
 
             st.plotly_chart(fig, use_container_width=True)
